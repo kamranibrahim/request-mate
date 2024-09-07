@@ -1,21 +1,59 @@
 import 'dart:convert';
-import 'dart:developer';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:request_mate/src/interceptors/custom_interceptors.dart';
 import 'package:request_mate/src/models/response_models.dart';
+import 'package:request_mate/src/utilities/network_utils.dart';
 
 class HttpService {
   static final Dio _dio = Dio();
   static String? _basePath;
-  static Future<bool> Function()? preCheckFn;
+  static Map<String, dynamic> _defaultHeaders = {};
   static bool usePreCheckFnHttpCalls = false;
-  static bool showAPILogs = false;
-  HttpService._();
+  static bool? _showAPILogs;
+  static Future<String> Function()? _tokenRefreshFn;
+
+  // Initialize with interceptors
+  static void initialize() {
+    addInterceptor(CustomInterceptor(showAPILogs: _showAPILogs ?? false));
+  }
+
+  // Method to add an interceptor
+  static void addInterceptor(Interceptor interceptor) {
+    _dio.interceptors.add(interceptor);
+  }
+
+  // Method to clear all interceptors
+  static void clearInterceptors() {
+    _dio.interceptors.clear();
+  }
+
+  // Setup method to configure global settings
+  static void configure({
+    required String basePath,
+    Map<String, dynamic>? defaultHeaders,
+    /// check expiry token, call your refresh token and return new token
+    Future<String> Function()? tokenCheckAndRefreshFn,
+    bool showLogs = false,
+    /// connectTimeout in seconds
+    int? connectTimeout,
+    /// receiveTimeout in seconds
+    int? receiveTimeout,
+  }) {
+    _basePath = basePath;
+    _defaultHeaders = defaultHeaders ?? {};
+    _tokenRefreshFn = tokenCheckAndRefreshFn;
+    _showAPILogs = showLogs;
+
+    _dio.options.connectTimeout = Duration(seconds: connectTimeout ?? 5);
+    _dio.options.receiveTimeout = Duration(seconds: receiveTimeout ?? 5);
+    initialize();
+  }
 
   // Main request method
   static Future<dynamic> request(
-      String method,
+      RequestMateType methodType,
       String endPoint, {
         String? basePathOverride,
         Map<String, dynamic>? headers,
@@ -26,56 +64,30 @@ class HttpService {
         required String token,
         String tokenType = 'Bearer',
         bool useDefaultResponse = true,
-        bool? usePreCheckFn,
+        bool? useTokenExpireFn,
+        bool useTokenRefreshFn = true,
+        bool? showLogs,
       }) async {
     final fullUrl = _buildFullUrl(endPoint, basePathOverride);
 
-    // Log request details before making the call
-    showLog({
-      'method': method,
-      'url': fullUrl,
-      'headers': headers,
-      'queryParams': queryParams,
-      'data': data,
-    }, logName: 'Request', showLog: true);
-
-    // Run preCheckFn if enabled
-    await checkPreFunction(usePreCheckFn);
-
-    headers = headers ?? {};
-    if (token.isNotEmpty) {
-      headers['Authorization'] = '$tokenType $token';
-    }
+    headers = await _buildHeaders(headers, token, useTokenRefreshFn, tokenType);
 
     try {
       final response = await _dio.request(
         fullUrl,
         data: data,
         queryParameters: queryParams,
-        options: options?.copyWith(method: method, headers: headers) ?? Options(method: method, headers: headers),
+        options: options?.copyWith(method: methodType.value, headers: headers) ?? Options(method: methodType.value, headers: headers),
         cancelToken: cancelToken,
       );
 
-      // Log response details after the call
-      showLog(response.data, logName: 'Response', showLog: true);
-
       if (useDefaultResponse) {
-        if (response.data is String) {
-          // Decode the string into JSON
-          final decodedData = jsonDecode(response.data);
-          return ApiResponse.fromJson(decodedData);
-        } else if (response.data is Map<String, dynamic>) {
-          return ApiResponse.fromJson(response.data);
-        } else {
-          // In case the response is in an unexpected format
-          return ApiResponse(success: false, message: 'Unexpected response format');
-        }
+        return _decodeResponse(response.data);
       } else {
-        // Return the raw response data if not using the default ApiResponse
         return response.data;
       }
-    } catch (e) {
-      throw _handleError(e);
+    }  catch (e) {
+      return _handleError(e);
     }
   }
 
@@ -87,35 +99,264 @@ class HttpService {
         Map<String, dynamic>? queryParams,
         CancelToken? cancelToken,
         Options? options,
+        required String token,
         String tokenType = 'Bearer',
         bool useDefaultResponse = true,
-        required String token,
-        bool? usePreCheckFn,
-      }) {
+        bool useTokenRefreshFn = true,
+        bool? showLogs,
+      }) async {
     return request(
-      'GET',
+      RequestMateType.get,
       endPoint,
       basePathOverride: basePathOverride,
       headers: headers,
       queryParams: queryParams,
       cancelToken: cancelToken,
       options: options,
-      useDefaultResponse: useDefaultResponse,
       token: token,
       tokenType: tokenType,
-      usePreCheckFn: usePreCheckFn,
+      useDefaultResponse: useDefaultResponse,
+      useTokenRefreshFn: useTokenRefreshFn,
+      showLogs: showLogs,
     );
   }
 
-  // Other methods for POST, PUT, PATCH, DELETE, etc., would follow the same pattern as `get`
+  static Future<dynamic> post(
+      String endPoint, {
+        String? basePathOverride,
+        Map<String, dynamic>? headers,
+        Map<String, dynamic>? queryParams,
+        dynamic data,
+        CancelToken? cancelToken,
+        Options? options,
+        required String token,
+        String tokenType = 'Bearer',
+        bool useDefaultResponse = true,
+        bool? useTokenExpireFn,
+        bool useTokenRefreshFn = true,
+        bool? showLogs,
+      }) {
+    return request(
+      RequestMateType.post,
+      endPoint,
+      basePathOverride: basePathOverride,
+      headers: headers,
+      queryParams: queryParams,
+      data: data,
+      cancelToken: cancelToken,
+      options: options,
+      token: token,
+      tokenType: tokenType,
+      useDefaultResponse: useDefaultResponse,
+      useTokenRefreshFn: useTokenRefreshFn,
+      showLogs: showLogs,
+    );
+  }
 
-  // Create a cancel token for canceling requests
-  static CancelToken createCancelToken() => CancelToken();
+  // PUT method
+  static Future<dynamic> put(
+      String endPoint, {
+        String? basePathOverride,
+        Map<String, dynamic>? headers,
+        Map<String, dynamic>? queryParams,
+        dynamic data,
+        CancelToken? cancelToken,
+        Options? options,
+        required String token,
+        String tokenType = 'Bearer',
+        bool useDefaultResponse = true,
+        bool? useTokenExpireFn,
+        bool useTokenRefreshFn = true,
+        bool? showLogs,
+      }) {
+    return request(
+      RequestMateType.put,
+      endPoint,
+      basePathOverride: basePathOverride,
+      headers: headers,
+      queryParams: queryParams,
+      data: data,
+      cancelToken: cancelToken,
+      options: options,
+      token: token,
+      tokenType: tokenType,
+      useDefaultResponse: useDefaultResponse,
+      useTokenRefreshFn: useTokenRefreshFn,
+      showLogs: showLogs,
+    );
+  }
+
+  // PATCH method
+  static Future<dynamic> patch(
+      String endPoint, {
+        String? basePathOverride,
+        Map<String, dynamic>? headers,
+        Map<String, dynamic>? queryParams,
+        dynamic data,
+        CancelToken? cancelToken,
+        Options? options,
+        required String token,
+        String tokenType = 'Bearer',
+        bool useDefaultResponse = true,
+        bool? useTokenExpireFn,
+        bool useTokenRefreshFn = true,
+        bool? showLogs,
+      }) {
+    return request(
+      RequestMateType.patch,
+      endPoint,
+      basePathOverride: basePathOverride,
+      headers: headers,
+      queryParams: queryParams,
+      data: data,
+      cancelToken: cancelToken,
+      options: options,
+      token: token,
+      tokenType: tokenType,
+      useDefaultResponse: useDefaultResponse,
+      useTokenRefreshFn: useTokenRefreshFn,
+      showLogs: showLogs,
+    );
+  }
+
+  // Multipart method
+  static Future<dynamic> multipartRequest(
+      String endPoint, {
+        required Map<String, File> files,
+        required Map<String, dynamic> bodyParams,
+        String? filesKey,
+        String? basePathOverride,
+        Map<String, dynamic>? headers,
+        Map<String, dynamic>? queryParams,
+        CancelToken? cancelToken,
+        Options? options,
+        required String token,
+        String tokenType = 'Bearer',
+        bool useDefaultResponse = true,
+        bool? useTokenExpireFn,
+        bool useTokenRefreshFn = true,
+        bool? showLogs,
+      }) async {
+    final fullUrl = _buildFullUrl(endPoint, basePathOverride);
+
+    if (files.isEmpty) {
+      throw Exception("File list is empty");
+    }
+
+    if (bodyParams.isEmpty) {
+      throw Exception("Body parameters are empty");
+    }
+
+    // Build headers
+    headers = await _buildHeaders(headers, token, useTokenRefreshFn , tokenType);
+
+    // Build FormData
+    final formData = FormData();
+
+    bodyParams.forEach((key, value) {
+      formData.fields.add(MapEntry(key, value.toString()));
+    });
+
+    files.forEach((key, file) async {
+      if (!await file.exists()) {
+        throw Exception("File ${file.path} does not exist");
+      }
+      formData.files.add(MapEntry(key, await MultipartFile.fromFile(file.path, filename: file.uri.pathSegments.last)));
+    });
+
+    try {
+      final response = await Dio().request(
+        fullUrl,
+        data: formData,
+        queryParameters: queryParams,
+        options: options?.copyWith(
+          method: 'POST',
+          headers: headers,
+        ) ?? Options(method: 'POST', headers: headers),
+        cancelToken: cancelToken,
+      );
+
+      if (useDefaultResponse) {
+        return _decodeResponse(response.data);
+      } else {
+        return response.data;
+      }
+    } catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  static Future<dynamic> delete(
+      String endPoint, {
+        String? basePathOverride,
+        Map<String, dynamic>? headers,
+        Map<String, dynamic>? queryParams,
+        dynamic data,
+        CancelToken? cancelToken,
+        Options? options,
+        required String token,
+        String tokenType = 'Bearer',
+        bool useDefaultResponse = true,
+        bool? useTokenExpireFn,
+        bool useTokenRefreshFn = true,
+        bool? showLogs,
+      }) {
+    return request(
+      RequestMateType.delete,
+      endPoint,
+      basePathOverride: basePathOverride,
+      headers: headers,
+      queryParams: queryParams,
+      data: data,
+      cancelToken: cancelToken,
+      options: options,
+      token: token,
+      tokenType: tokenType,
+      useDefaultResponse: useDefaultResponse,
+      useTokenRefreshFn: useTokenRefreshFn,
+      showLogs: showLogs,
+    );
+  }
+
+
+  static Future<String> _refreshToken(String token) async {
+    if(_tokenRefreshFn == null) return token;
+    final newToken = await _tokenRefreshFn!();
+    return newToken;
+  }
+
+  static Future<Map<String, dynamic>> _buildHeaders(
+      Map<String, dynamic>? headers,
+      String token,
+      bool useTokenRefresh,
+      String tokenType,) async {
+
+    final builtHeaders = Map<String, dynamic>.from(_defaultHeaders);
+    if (headers != null) {
+      builtHeaders.addAll(headers);
+    }
+    if (token.isNotEmpty && useTokenRefresh && _tokenRefreshFn != null) {
+      token = await _refreshToken(token);
+    }
+    if (token.isNotEmpty) {
+      builtHeaders['Authorization'] = '$tokenType $token';
+    }
+    return builtHeaders;
+  }
+
+  static dynamic _decodeResponse(dynamic data) {
+    if (data is String) {
+      return ApiResponse.fromJson(jsonDecode(data));
+    } else if (data is Map<String, dynamic>) {
+      return ApiResponse.fromJson(data);
+    } else {
+      return ApiResponse(success: false, message: 'Unexpected response format');
+    }
+  }
 
   // Cancel a request using the provided token
   static void cancelRequest(CancelToken token) => token.cancel('Request canceled');
 
-  // Build full URL by adding basePath if provided
   static String _buildFullUrl(String endPoint, [String? basePathOverride]) {
     final basePath = basePathOverride ?? _basePath;
     if (basePath != null) {
@@ -124,7 +365,6 @@ class HttpService {
     return endPoint;
   }
 
-  // Handle errors
   static Exception _handleError(dynamic error) {
     if (error is DioException) {
       switch (error.type) {
@@ -146,34 +386,4 @@ class HttpService {
     }
   }
 
-  static Future checkPreFunction(usePreCheckFn) async {
-    if (preCheckFn != null && (usePreCheckFn ?? usePreCheckFnHttpCalls)) {
-      final shouldProceed = await preCheckFn!();
-      if (!shouldProceed) {
-        return ApiResponse(success: false, message: "Pre-check failed, request aborted");
-      }
-    }
-  }
-
-  static void showLog(
-      data, {
-        bool? showLog,
-        bool enableJsonEncode = true,
-        bool showPrint = false,
-        required String logName,
-      }) {
-    try {
-      if (showAPILogs ?? showLog ?? kDebugMode) {
-        showPrint
-            ? debugPrint(data.toString())
-            : log(
-          enableJsonEncode ? jsonEncode(data) : data.toString(),
-          time: DateTime.timestamp(),
-          name: 'HttpCalls => $logName',
-        );
-      }
-    } catch (e) {
-      log('Exception while logging', time: DateTime.timestamp());
-    }
-  }
 }
