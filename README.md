@@ -186,7 +186,7 @@ Contributions are welcome! If you find any bugs or have feature requests, please
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](LICENSE). You are free to use, modify, and distribute the software, subject to the conditions laid out in the license.
 
 ---
 
