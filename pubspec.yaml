@@ -1,7 +1,9 @@
 name: request_mate
-description: "A new Flutter project."
+description: A lightweight HTTP client for Flutter/Dart with global configs, interceptors, and cancelable requests.
 version: 0.0.1-beta.1
-homepage:
+homepage: https://github.com/your-username/request_mate
+repository: https://github.com/your-username/request_mate
+issue_tracker: https://github.com/your-username/request_mate/issues
 
 environment:
   sdk: '>=3.4.4 <4.0.0'
