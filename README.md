@@ -21,7 +21,7 @@ Add `request_mate` to your `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  request_mate: ^1.0.0
+  request_mate: ^0.0.1-beta.3
 ```
 
 Then, run:
