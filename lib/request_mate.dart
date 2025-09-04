@@ -60,7 +60,8 @@ import 'package:request_mate/src/http_service.dart';
 /// **Note:**
 /// Ensure that the `basePath` parameter is set correctly to match the API endpoints you intend to interact with.
 /// If you do not need to set custom interceptors or handle token refresh, you can omit those parameters.
-///
+
+
 void setupRequestMate({
   required String basePath,
   bool showLogs = false,

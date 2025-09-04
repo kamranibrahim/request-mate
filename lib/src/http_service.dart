@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:request_mate/src/interceptors/custom_interceptors.dart';
 import 'package:request_mate/src/models/response_models.dart';
 import 'package:request_mate/src/utilities/network_utils.dart';
@@ -57,8 +58,9 @@ class HttpService {
     _tokenRefreshFn = tokenCheckAndRefreshFn;
     _showAPILogs = showLogs;
 
-    _dio.options.connectTimeout = Duration(seconds: connectTimeout ?? 5);
-    _dio.options.receiveTimeout = Duration(seconds: receiveTimeout ?? 5);
+    _dio.options.connectTimeout = Duration(seconds: connectTimeout ?? 8);
+    _dio.options.receiveTimeout = Duration(seconds: receiveTimeout ?? 8);
+
     initialize();
   }
 
@@ -119,7 +121,7 @@ class HttpService {
         return response.data;
       }
     }  catch (e) {
-      return _handleError(e);
+      return _handleError(e, useDefaultResponse: useDefaultResponse);
     }
   }
 
@@ -173,12 +175,40 @@ class HttpService {
       });
     }
     if(files.isNotEmpty) {
-      files.forEach((key, file) async {
-        if (!await file.exists()) {
-          throw Exception("File ${file.path} does not exist");
+      if(files.isNotEmpty) {
+        for (final entry in files.entries) {
+          final file = entry.value;
+          if (!await file.exists()) {
+            throw Exception("File ${file.path} does not exist");
+          }
+
+          final fileSize = await file.length();
+          if (fileSize > 5 * 1024 * 1024) {
+            final length = fileSize;
+
+            formData.files.add(
+              MapEntry(
+                entry.key,
+                MultipartFile.fromStream(
+                  ()=> file.openRead(),
+                  length,
+                  filename: file.uri.pathSegments.last,
+                ),
+              ),
+            );
+          } else {
+            formData.files.add(
+              MapEntry(
+                entry.key,
+                await MultipartFile.fromFile(
+                    file.path,
+                    filename: file.uri.pathSegments.last
+                ),
+              ),
+            );
+          }
         }
-        formData.files.add(MapEntry(key, await MultipartFile.fromFile(file.path, filename: file.uri.pathSegments.last)));
-      });
+      }
     }
 
     try {
@@ -199,7 +229,7 @@ class HttpService {
         return response.data;
       }
     } catch (e) {
-      return _handleError(e);
+      return _handleError(e, useDefaultResponse: useDefaultResponse);
     }
   }
 
@@ -229,10 +259,16 @@ class HttpService {
 
     final builtHeaders = Map<String, dynamic>.from(_defaultHeaders);
     if (headers != null) {
-      builtHeaders.addAll(headers);
+      builtHeaders.addAll(Map<String, dynamic>.from(headers));
     }
-    if (token.isNotEmpty && useTokenRefresh && _tokenRefreshFn != null) {
-      token = await _refreshToken(token);
+    if (token.isNotEmpty) {
+      try {
+        if (useTokenRefresh && _tokenRefreshFn != null) {
+          token = await _refreshToken(token);
+        }
+      } catch (_) {
+        debugPrint("Token refresh failed, proceeding with existing token");
+      }
     }
     if (token.isNotEmpty) {
       builtHeaders['Authorization'] = '$tokenType $token';
