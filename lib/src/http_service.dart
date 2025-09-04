@@ -83,46 +83,52 @@ class HttpService {
   ///
   /// Returns the response data or an error.
   static Future<dynamic> request(
-      RequestMateType methodType,
-      String endPoint, {
-        String? basePathOverride,
-        Map<String, dynamic>? additionalHeaders,
-        Map<String, dynamic>? queryParams,
-        dynamic data,
-        CancelToken? cancelToken,
-        Options? options,
-        required String token,
-        String tokenType = 'Bearer',
-        bool useDefaultResponse = true,
-        bool? useTokenExpireFn,
-        bool useTokenRefreshFn = true,
-        bool? showLogs,
-      }) async {
+    RequestMateType methodType,
+    String endPoint, {
+    String? basePathOverride,
+    Map<String, dynamic>? additionalHeaders,
+    Map<String, dynamic>? queryParams,
+    dynamic data,
+    CancelToken? cancelToken,
+    Options? options,
+    required String token,
+    String tokenType = 'Bearer',
+    bool useDefaultResponse = true,
+    bool? useTokenExpireFn,
+    bool useTokenRefreshFn = true,
+    bool? showLogs,
+  }) async {
     final fullUrl = _buildFullUrl(endPoint, basePathOverride);
 
-    additionalHeaders = await _buildHeaders(additionalHeaders, token, useTokenRefreshFn, tokenType);
+    additionalHeaders = await _buildHeaders(
+        additionalHeaders, token, useTokenRefreshFn, tokenType);
 
-    try {
-      final response = await _dio.request(
-        fullUrl,
-        data: data,
-        queryParameters: queryParams,
-        options: options?.copyWith(method: methodType.value, headers: additionalHeaders)
-            ?? Options(
-              method: methodType.value,
-              headers: additionalHeaders,
-            ),
-        cancelToken: cancelToken,
-      );
+    // try {
+    final response = await _dio.request(
+      fullUrl,
+      data: data,
+      queryParameters: queryParams,
+      options: options?.copyWith(
+            method: methodType.value,
+            headers: additionalHeaders,
+            validateStatus: (status) => true,
+          ) ??
+          Options(
+            method: methodType.value,
+            headers: additionalHeaders,
+            validateStatus: (status) => true,
+          ),
+      cancelToken: cancelToken,
+    );
 
-      if (useDefaultResponse) {
-        return _decodeResponse(response.data);
-      } else {
-        return response.data;
-      }
-    }  catch (e) {
-      return _handleError(e, useDefaultResponse: useDefaultResponse);
+    if (useDefaultResponse) {
+      return _decodeResponse(response.data);
+    } else {
+      return response.data;
     }
+    // } catch (e) {
+    //   return _handleError(e, useDefaultResponse: useDefaultResponse);
+    // }
   }
 
   /// Sends a multipart HTTP request.
@@ -146,36 +152,36 @@ class HttpService {
   ///
   /// Returns the response data or an error.
   static Future<dynamic> multipartRequest(
-      String endPoint, {
-        required Map<String, File> files,
-        required Map<String, dynamic> bodyParams,
-        String? filesKey,
-        String? basePathOverride,
-        Map<String, dynamic>? headers,
-        Map<String, dynamic>? queryParams,
-        CancelToken? cancelToken,
-        Options? options,
-        required String token,
-        String tokenType = 'Bearer',
-        bool useDefaultResponse = true,
-        bool? useTokenExpireFn,
-        bool useTokenRefreshFn = true,
-        bool? showLogs,
-        RequestMateType method = RequestMateType.post,
-      }) async {
+    String endPoint, {
+    required Map<String, File> files,
+    required Map<String, dynamic> bodyParams,
+    String? filesKey,
+    String? basePathOverride,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? queryParams,
+    CancelToken? cancelToken,
+    Options? options,
+    required String token,
+    String tokenType = 'Bearer',
+    bool useDefaultResponse = true,
+    bool? useTokenExpireFn,
+    bool useTokenRefreshFn = true,
+    bool? showLogs,
+    RequestMateType method = RequestMateType.post,
+  }) async {
     final fullUrl = _buildFullUrl(endPoint, basePathOverride);
 
-    headers = await _buildHeaders(headers, token, useTokenRefreshFn , tokenType);
+    headers = await _buildHeaders(headers, token, useTokenRefreshFn, tokenType);
 
     final formData = FormData();
 
-    if(bodyParams.isNotEmpty) {
+    if (bodyParams.isNotEmpty) {
       bodyParams.forEach((key, value) {
         formData.fields.add(MapEntry(key, value.toString()));
       });
     }
-    if(files.isNotEmpty) {
-      if(files.isNotEmpty) {
+    if (files.isNotEmpty) {
+      if (files.isNotEmpty) {
         for (final entry in files.entries) {
           final file = entry.value;
           if (!await file.exists()) {
@@ -190,7 +196,7 @@ class HttpService {
               MapEntry(
                 entry.key,
                 MultipartFile.fromStream(
-                  ()=> file.openRead(),
+                  () => file.openRead(),
                   length,
                   filename: file.uri.pathSegments.last,
                 ),
@@ -200,10 +206,8 @@ class HttpService {
             formData.files.add(
               MapEntry(
                 entry.key,
-                await MultipartFile.fromFile(
-                    file.path,
-                    filename: file.uri.pathSegments.last
-                ),
+                await MultipartFile.fromFile(file.path,
+                    filename: file.uri.pathSegments.last),
               ),
             );
           }
@@ -217,9 +221,15 @@ class HttpService {
         data: formData,
         queryParameters: queryParams,
         options: options?.copyWith(
-          method: method.value,
-          headers: headers,
-        ) ?? Options(method: method.value, headers: headers),
+              method: method.value,
+              headers: headers,
+              validateStatus: (status) => true,
+            ) ??
+            Options(
+              method: method.value,
+              headers: headers,
+              validateStatus: (status) => true,
+            ),
         cancelToken: cancelToken,
       );
 
@@ -252,11 +262,11 @@ class HttpService {
   ///
   /// Returns a map of headers.
   static Future<Map<String, dynamic>> _buildHeaders(
-      Map<String, dynamic>? headers,
-      String token,
-      bool useTokenRefresh,
-      String tokenType,) async {
-
+    Map<String, dynamic>? headers,
+    String token,
+    bool useTokenRefresh,
+    String tokenType,
+  ) async {
     final builtHeaders = Map<String, dynamic>.from(_defaultHeaders);
     if (headers != null) {
       builtHeaders.addAll(Map<String, dynamic>.from(headers));
@@ -283,10 +293,13 @@ class HttpService {
   /// Returns a [ApiResponse] or the raw data
   static dynamic _decodeResponse(dynamic data) {
     if (data is String) {
+      debugPrint("String");
       return ApiResponse.fromJson(jsonDecode(data));
     } else if (data is Map<String, dynamic>) {
+      debugPrint("Map<String, dynamic>");
       return ApiResponse.fromJson(data);
     } else {
+      debugPrint("Unexpected response format");
       return ApiResponse(success: false, message: 'Unexpected response format');
     }
   }
@@ -294,7 +307,8 @@ class HttpService {
   /// Cancels a request.
   ///
   /// [token] The token used to cancel the request.
-  static void cancelRequest(CancelToken token) => token.cancel('Request canceled');
+  static void cancelRequest(CancelToken token) =>
+      token.cancel('Request canceled');
 
   /// Builds the full URL for a request.
   ///
@@ -332,10 +346,12 @@ class HttpService {
           errorMessage = "Connection timeout with API server";
           break;
         case DioExceptionType.badResponse:
-          errorMessage = "Received invalid status code: ${error.response?.statusCode}";
+          errorMessage =
+              "Received invalid status code: ${error.response?.statusCode}";
           break;
         case DioExceptionType.unknown:
-          errorMessage = "Connection to API server failed due to internet connection";
+          errorMessage =
+              "Connection to API server failed due to internet connection";
           break;
         default:
           errorMessage = "Something went wrong";

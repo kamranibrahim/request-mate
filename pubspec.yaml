@@ -1,9 +1,9 @@
 name: request_mate
 description: A lightweight HTTP client for Flutter/Dart with global configs, interceptors, and cancelable requests.
-version: 0.0.1-beta.1
-homepage: https://github.com/your-username/request_mate
-repository: https://github.com/your-username/request_mate
-issue_tracker: https://github.com/your-username/request_mate/issues
+version: 0.0.1-beta.2
+homepage: https://github.com/kamranibrahim/request-mate
+repository: https://github.com/kamranibrahim/request-mate
+issue_tracker: https://github.com/kamranibrahim/request-mate/issues
 
 environment:
   sdk: '>=3.4.4 <4.0.0'
@@ -21,6 +21,10 @@ dev_dependencies:
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
+
+platforms:
+  android:
+  ios:
 
 # The following section is specific to Flutter packages.
 flutter:

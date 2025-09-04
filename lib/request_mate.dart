@@ -1,5 +1,10 @@
+library;
+export 'src/http_service.dart';
+export 'src/models/response_models.dart';
+export 'src/utilities/network_utils.dart';
 import 'package:dio/dio.dart';
-import 'package:request_mate/src/http_service.dart';
+import 'package:request_mate/request_mate.dart';
+
 
 /// Initializes and configures the `request_mate` library.
 ///
@@ -61,7 +66,6 @@ import 'package:request_mate/src/http_service.dart';
 /// Ensure that the `basePath` parameter is set correctly to match the API endpoints you intend to interact with.
 /// If you do not need to set custom interceptors or handle token refresh, you can omit those parameters.
 
-
 void setupRequestMate({
   required String basePath,
   bool showLogs = false,
@@ -71,7 +75,6 @@ void setupRequestMate({
   int? receiveTimeout,
   Future<String> Function()? tokenCheckAndRefreshFn,
 }) {
-
   if (customInterceptors != null) {
     for (var interceptor in customInterceptors) {
       HttpService.addInterceptor(interceptor);

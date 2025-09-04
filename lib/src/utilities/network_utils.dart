@@ -1,4 +1,4 @@
-enum RequestMateType{
+enum RequestMateType {
   post(value: 'POST'),
   delete(value: 'DELETE'),
   get(value: 'GET'),

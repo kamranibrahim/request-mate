@@ -17,7 +17,7 @@ class ApiResponse<T> {
     return ApiResponse<T>(
       success: json['success'] ?? false,
       message: json['message'] ?? json['Message'] ?? json['MESSAGE'] ?? ['Message'],
-      errorMessage: json['errorMessage'] ?? json['ErrorMessage'],
+      errorMessage: json['errorMessage'] ?? json['ErrorMessage'] ?? json['error_message'],
       data: json['data'] ?? json['response'] ?? json['DATA'] ?? json['RESPONSE'],
       statusCode : json['status_code'] ?? json['statusCode'] ?? json['StatusCode'] ?? json['STATUSCODE'],
     );
