@@ -45,7 +45,7 @@ Configure `RequestMate` once before making requests:
 import 'package:request_mate/request_mate.dart';
 
 void main() {
-  RequestMate.configure(
+  setupRequestMate(
     basePath: 'https://api.example.com/',
     defaultHeaders: {
       'Content-Type': 'application/json',
@@ -204,7 +204,7 @@ void main() {
   Automatically called before requests to keep tokens valid.
 
   ```dart
-  RequestMate.configure(
+  setupRequestMate(
     tokenCheckAndRefreshFn: () async {
       return 'new_token';
     },

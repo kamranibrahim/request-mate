@@ -2,6 +2,10 @@
 
 All notable changes to the `request_mate` package will be documented here.
 
+## [0.0.2] - 2025-09-05
+### Fixed
+- Fix readme example code snippets for better clarity.
+
 ## [0.0.1] - 2025-09-10
 ### First Stable Release
 - Initial stable release of RequestMate.
