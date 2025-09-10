@@ -1,10 +1,10 @@
 library;
+
 export 'src/http_service.dart';
 export 'src/models/response_models.dart';
 export 'src/utilities/network_utils.dart';
 import 'package:dio/dio.dart';
 import 'package:request_mate/request_mate.dart';
-
 
 /// Initializes and configures the `request_mate` library.
 ///

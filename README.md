@@ -1,40 +1,45 @@
 
----
-
 # RequestMate
 
-`RequestMate` is a simple and powerful HTTP client package for Flutter/Dart applications, built on top of the Dio package. It provides a clean and flexible way to handle various types of network requests, including standard GET, POST, PATCH, PUT, DELETE, and multipart requests, with easy-to-use configurations for headers, logging, token management, and error handling.
+`RequestMate` is a lightweight yet powerful HTTP client for Flutter/Dart, built on top of the **Dio** package. It simplifies networking with a clean API for standard requests (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`) and multipart uploads, while offering global configuration, token management, request cancellation, and interceptor support.
 
-## Features
+---
 
-- Simplified HTTP requests (GET, POST, PUT, PATCH, DELETE).
-- Multipart file upload.
-- Global configuration for base URL, headers, and timeouts.
-- Token management with automatic token refresh.
-- Request cancellation support.
-- Customizable logging for API requests and responses.
-- Error handling with customizable responses.
+## ✨ Features
 
-## Installation
+* Easy-to-use HTTP requests (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).
+* Multipart file upload support.
+* Global configuration for base URL, headers, and timeouts.
+* Token management with automatic refresh support.
+* Request cancellation with `CancelToken`.
+* Built-in and custom logging for requests and responses.
+* Customizable error handling with a standard `ApiResponse` format.
+* Support for custom Dio interceptors.
 
-Add `request_mate` to your `pubspec.yaml` file:
+---
+
+## 🚀 Installation
+
+Add the dependency in your `pubspec.yaml`:
 
 ```yaml
 dependencies:
   request_mate: ^0.0.1-beta.3
 ```
 
-Then, run:
+Then install:
 
 ```bash
 flutter pub get
 ```
 
-## Usage
+---
 
-### 1. Basic Configuration
+## 🛠 Usage
 
-Before making any network calls, you should configure the global settings such as the base URL, headers, and timeouts.
+### 1. Global Configuration
+
+Configure `RequestMate` once before making requests:
 
 ```dart
 import 'package:request_mate/request_mate.dart';
@@ -46,23 +51,23 @@ void main() {
       'Content-Type': 'application/json',
     },
     tokenCheckAndRefreshFn: () async {
-      // Logic to refresh your token
+      // Logic to refresh token
       return 'new_token';
     },
     showLogs: true,
-    connectTimeout: 10, // in seconds
-    receiveTimeout: 10, // in seconds
+    connectTimeout: 10,  // in seconds
+    receiveTimeout: 10,  // in seconds
   );
 
-  // Continue with your app initialization
+  // Continue app initialization...
 }
 ```
 
-### 2. Making a Simple GET Request
+---
+
+### 2. GET Request
 
 ```dart
-import 'package:request_mate/request_mate.dart';
-
 Future<void> fetchData() async {
   final response = await HttpService.request(
     RequestMateType.get,
@@ -78,7 +83,9 @@ Future<void> fetchData() async {
 }
 ```
 
-### 3. Making a POST Request with Data
+---
+
+### 3. POST Request with Data
 
 ```dart
 Future<void> createData() async {
@@ -93,14 +100,16 @@ Future<void> createData() async {
   );
 
   if (response.success) {
-    print('Created successfully: ${response.data}');
+    print('Created: ${response.data}');
   } else {
     print('Error: ${response.errorMessage}');
   }
 }
 ```
 
-### 4. Uploading Files with Multipart Request
+---
+
+### 4. Multipart Upload
 
 ```dart
 import 'dart:io';
@@ -114,14 +123,16 @@ Future<void> uploadFile(File file) async {
   );
 
   if (response.success) {
-    print('File uploaded successfully: ${response.data}');
+    print('Upload successful: ${response.data}');
   } else {
     print('Error: ${response.errorMessage}');
   }
 }
 ```
 
-### 5. Canceling a Request
+---
+
+### 5. Cancel a Request
 
 ```dart
 import 'package:dio/dio.dart';
@@ -142,32 +153,76 @@ Future<void> fetchDataWithCancel() async {
   }
 }
 
-// Call cancel when needed
+// Cancel when needed
 cancelToken.cancel('Request canceled by the user.');
 ```
 
-## Advanced Configuration
+---
 
-- **Token Refresh Function:** You can provide a custom function to handle token refresh logic. This will be invoked automatically when making requests.
+### 6. Using Custom Interceptors
 
-```dart
-RequestMate.configure(
-  tokenCheckAndRefreshFn: () async {
-    // Refresh the token and return the new one
-    return 'new_token';
-  }
-);
-```
-
-- **Logging:** Enable or disable logging of requests and responses globally or on a per-request basis.
+You can register Dio interceptors globally when configuring `RequestMate`:
 
 ```dart
-showLogs: true,
+import 'package:dio/dio.dart';
+
+void main() {
+  setupRequestMate(
+    basePath: 'https://api.example.com/',
+    customInterceptors: [
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          print('➡️ Request: ${options.method} ${options.path}');
+          return handler.next(options);
+        },
+        onResponse: (response, handler) {
+          print('✅ Response: ${response.statusCode}');
+          return handler.next(response);
+        },
+        onError: (DioException e, handler) {
+          print('❌ Error: ${e.message}');
+          return handler.next(e);
+        },
+      ),
+    ],
+  );
+}
 ```
 
-## Error Handling
+**Use cases for interceptors:**
 
-By default, `RequestMate` will return an `ApiResponse` object with the following structure:
+* Add/modify headers (e.g., tokens, localization).
+* Implement global error handling (e.g., redirect on 401).
+* Add retry logic with exponential backoff.
+* Customize logging beyond the built-in logger.
+
+---
+
+## ⚙️ Advanced Configuration
+
+* **Token refresh function:**
+  Automatically called before requests to keep tokens valid.
+
+  ```dart
+  RequestMate.configure(
+    tokenCheckAndRefreshFn: () async {
+      return 'new_token';
+    },
+  );
+  ```
+
+* **Logging:**
+  Enable or disable request/response logs.
+
+  ```dart
+  showLogs: true,
+  ```
+
+---
+
+## 🛡 Error Handling
+
+All responses are wrapped in an `ApiResponse`:
 
 ```dart
 ApiResponse({
@@ -178,16 +233,19 @@ ApiResponse({
 });
 ```
 
-You can handle errors easily by checking the `success` field and displaying the appropriate error message.
-
-## Contributing
-
-Contributions are welcome! If you find any bugs or have feature requests, please feel free to create an issue or submit a pull request.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE). You are free to use, modify, and distribute the software, subject to the conditions laid out in the license.
+This makes it simple to check success and handle errors consistently.
 
 ---
 
-This `README.md` provides an overview of how to use the `request_mate` package, including installation, basic configuration, usage examples, and error handling. Let me know if you need any adjustments!
+## 🤝 Contributing
+
+Contributions are welcome! Open issues or submit pull requests for features, fixes, or improvements.
+
+---
+
+## 📄 License
+
+Licensed under the [MIT License](LICENSE).
+You are free to use, modify, and distribute this package.
+
+---

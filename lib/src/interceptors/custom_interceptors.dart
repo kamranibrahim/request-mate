@@ -43,7 +43,8 @@ class CustomInterceptor extends Interceptor {
       log("<-- ERROR ${err.response?.statusCode ?? 'Unknown'}",
           name: 'HttpError');
       if (err.response != null && err.response?.data != null) {
-        log("Error Response: ${jsonEncode(err.response?.data)}", name: 'HttpError');
+        log("Error Response: ${jsonEncode(err.response?.data)}",
+            name: 'HttpError');
       }
     }
     handler.next(err);
