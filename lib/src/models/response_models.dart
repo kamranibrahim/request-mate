@@ -16,10 +16,16 @@ class ApiResponse<T> {
   factory ApiResponse.fromJson(Map<String, dynamic> json) {
     return ApiResponse<T>(
       success: json['success'] ?? false,
-      message: json['message'] ?? json['Message'] ?? json['MESSAGE'] ?? ['Message'],
-      errorMessage: json['errorMessage'] ?? json['ErrorMessage'] ?? json['error_message'],
-      data: json['data'] ?? json['response'] ?? json['DATA'] ?? json['RESPONSE'],
-      statusCode : json['status_code'] ?? json['statusCode'] ?? json['StatusCode'] ?? json['STATUSCODE'],
+      message:
+          json['message'] ?? json['Message'] ?? json['MESSAGE'] ?? ['Message'],
+      errorMessage:
+          json['errorMessage'] ?? json['ErrorMessage'] ?? json['error_message'],
+      data:
+          json['data'] ?? json['response'] ?? json['DATA'] ?? json['RESPONSE'],
+      statusCode: json['status_code'] ??
+          json['statusCode'] ??
+          json['StatusCode'] ??
+          json['STATUSCODE'],
     );
   }
 }
