@@ -2,6 +2,27 @@
 
 All notable changes to the `request_mate` package will be documented here.
 
+## [0.0.1] - 2025-09-10
+### First Stable Release
+- Initial stable release of RequestMate.
+- ## Features included:
+  - Standard HTTP methods: `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`.
+  - Multipart request support (separate from normal requests)
+  - Enum `RequestMateType` for request method standardization
+  - Global configuration in `request_mate.dart`:
+    - Base URL
+    - Default headers (with token)
+    - Logging toggle & mechanism for requests/responses
+  - Auto JSON decoding of responses
+  - `ApiResponse` model for standardized results
+  - Support for custom response mapping via `fromJson`
+  - Token management:
+    - Token auto-included in requests
+    - JWT expiry decoding & 401 Unauthorized handling
+  - Utilities in `network_utils.dart`
+  - Error handling via `exceptions.dart`
+  - Interceptors with `custom_interceptors.dart`
+
 ## [0.0.1-beta.3] - 2025-09-05
 ### Fixed
 - Fix validationStatus allowing all status to be true.
