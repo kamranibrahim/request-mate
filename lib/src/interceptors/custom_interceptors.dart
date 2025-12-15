@@ -12,11 +12,21 @@ class CustomInterceptor extends Interceptor {
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     final bool shouldLog = showAPILogs || kDebugMode;
 
+
     if (shouldLog) {
       log("--> ${options.method.toUpperCase()} ${options.baseUrl}${options.path}",
           name: 'HttpRequest');
       log("Headers: ${options.headers}", name: 'HttpRequest');
-      if (options.data != null) {
+      final data = options.data;
+      if(data is FormData && data.files.isNotEmpty){
+        log("FormData files:", name: 'HttpRequest');
+        for (final file in data.files) {
+          log(
+            "  ${file.key}: ${file.value.filename}",
+            name: 'HttpRequest',
+          );
+        }
+      } else if (options.data != null) {
         log("Request Body: ${jsonEncode(options.data)}", name: 'HttpRequest');
       }
     }
