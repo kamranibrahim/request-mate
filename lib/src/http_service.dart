@@ -136,7 +136,6 @@ class HttpService {
   /// [endPoint] The endpoint for the request.
   /// [files] Map of file paths to upload.
   /// [bodyParams] Map of body parameters.
-  /// [filesKey] Optional key for the files.
   /// [basePathOverride] Optional override for the base path.
   /// [headers] Optional headers for the request.
   /// [queryParams] Optional query parameters for the request.
@@ -152,66 +151,71 @@ class HttpService {
   ///
   /// Returns the response data or an error.
   static Future<dynamic> multipartRequest(
-    String endPoint, {
-    required Map<String, File> files,
-    required Map<String, dynamic> bodyParams,
-    String? filesKey,
-    String? basePathOverride,
-    Map<String, dynamic>? headers,
-    Map<String, dynamic>? queryParams,
-    CancelToken? cancelToken,
-    Options? options,
-    required String token,
-    String tokenType = 'Bearer',
-    bool useDefaultResponse = true,
-    bool? useTokenExpireFn,
-    bool useTokenRefreshFn = true,
-    bool? showLogs,
-    RequestMateType method = RequestMateType.post,
-  }) async {
+      String endPoint, {
+        required Map<String, List<File>> files,
+        required Map<String, dynamic> bodyParams,
+        String? basePathOverride,
+        Map<String, dynamic>? headers,
+        Map<String, dynamic>? queryParams,
+        CancelToken? cancelToken,
+        Options? options,
+        required String token,
+        String tokenType = 'Bearer',
+        bool useDefaultResponse = true,
+        bool? useTokenExpireFn,
+        bool useTokenRefreshFn = true,
+        bool? showLogs,
+        RequestMateType method = RequestMateType.post,
+      }) async {
     final fullUrl = _buildFullUrl(endPoint, basePathOverride);
 
-    headers = await _buildHeaders(headers, token, useTokenRefreshFn, tokenType);
+    headers = await _buildHeaders(
+      headers,
+      token,
+      useTokenRefreshFn,
+      tokenType,
+    );
 
     final formData = FormData();
 
-    if (bodyParams.isNotEmpty) {
-      bodyParams.forEach((key, value) {
-        formData.fields.add(MapEntry(key, value.toString()));
-      });
-    }
-    if (files.isNotEmpty) {
-      if (files.isNotEmpty) {
-        for (final entry in files.entries) {
-          final file = entry.value;
-          if (!await file.exists()) {
-            throw Exception("File ${file.path} does not exist");
-          }
+    bodyParams.forEach((key, value) {
+      if (value != null) {
+        formData.fields.add(
+          MapEntry(key, value.toString()),
+        );
+      }
+    });
 
-          final fileSize = await file.length();
-          if (fileSize > 5 * 1024 * 1024) {
-            final length = fileSize;
+    for (final entry in files.entries) {
+      final fieldKey = entry.key;
+      final fileList = entry.value;
 
-            formData.files.add(
-              MapEntry(
-                entry.key,
-                MultipartFile.fromStream(
-                  () => file.openRead(),
-                  length,
-                  filename: file.uri.pathSegments.last,
-                ),
-              ),
-            );
-          } else {
-            formData.files.add(
-              MapEntry(
-                entry.key,
-                await MultipartFile.fromFile(file.path,
-                    filename: file.uri.pathSegments.last),
-              ),
-            );
-          }
+      for (final file in fileList) {
+        if (!await file.exists()) {
+          throw Exception('File not found: ${file.path}');
         }
+
+        final fileSize = await file.length();
+        final fileName = file.uri.pathSegments.last;
+
+        MultipartFile multipartFile;
+
+        if (fileSize > 5 * 1024 * 1024) {
+          multipartFile = MultipartFile.fromStream(
+                () => file.openRead(),
+            fileSize,
+            filename: fileName,
+          );
+        } else {
+          multipartFile = await MultipartFile.fromFile(
+            file.path,
+            filename: fileName,
+          );
+        }
+
+        formData.files.add(
+          MapEntry(fieldKey, multipartFile),
+        );
       }
     }
 
@@ -220,28 +224,32 @@ class HttpService {
         fullUrl,
         data: formData,
         queryParameters: queryParams,
+        cancelToken: cancelToken,
         options: options?.copyWith(
-              method: method.value,
-              headers: headers,
-              validateStatus: (status) => true,
-            ) ??
+          method: method.value,
+          headers: headers,
+          contentType: Headers.multipartFormDataContentType,
+          validateStatus: (_) => true,
+        ) ??
             Options(
               method: method.value,
               headers: headers,
-              validateStatus: (status) => true,
+              contentType: Headers.multipartFormDataContentType,
+              validateStatus: (_) => true,
             ),
-        cancelToken: cancelToken,
       );
 
-      if (useDefaultResponse) {
-        return _decodeResponse(response.data);
-      } else {
-        return response.data;
-      }
+      return useDefaultResponse
+          ? _decodeResponse(response.data)
+          : response.data;
     } catch (e) {
-      return _handleError(e, useDefaultResponse: useDefaultResponse);
+      return _handleError(
+        e,
+        useDefaultResponse: useDefaultResponse,
+      );
     }
   }
+
 
   /// Refreshes the authorization token.
   ///
